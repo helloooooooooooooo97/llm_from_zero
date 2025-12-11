@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from torch import Tensor
 
 class TransformerEncoderLayer(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, dim_feedforward: int = 2048, dropout: float = 0.1) -> None:
+    def __init__(self, d_model, num_heads, dim_feedforward=2048, dropout=0.1):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -17,7 +15,7 @@ class TransformerEncoderLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.activation = F.relu
 
-    def forward(self, src: Tensor, src_mask: Tensor = None) -> Tensor:
+    def forward(self, src, src_mask=None):
         # Self-attention + Add & Norm
         attn_output, _ = self.self_attn(src, src, src, key_padding_mask=src_mask)
         src = src + self.dropout1(attn_output)
@@ -29,7 +27,7 @@ class TransformerEncoderLayer(nn.Module):
         return src
 
 class TransformerDecoderLayer(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, dim_feedforward: int = 2048, dropout: float = 0.1) -> None:
+    def __init__(self, d_model, num_heads, dim_feedforward=2048, dropout=0.1):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
         self.cross_attn = nn.MultiheadAttention(d_model, num_heads, dropout=dropout, batch_first=True)
@@ -44,7 +42,7 @@ class TransformerDecoderLayer(nn.Module):
         self.dropout3 = nn.Dropout(dropout)
         self.activation = F.relu
 
-    def forward(self, tgt: Tensor, memory: Tensor, tgt_mask: Tensor = None, memory_mask: Tensor = None) -> Tensor:
+    def forward(self, tgt, memory, tgt_mask=None, memory_mask=None):
         # Masked Self-attention
         attn_output, _ = self.self_attn(tgt, tgt, tgt, attn_mask=tgt_mask)
         tgt = tgt + self.dropout1(attn_output)
@@ -60,17 +58,8 @@ class TransformerDecoderLayer(nn.Module):
         return tgt
 
 class Transformer(nn.Module):
-    def __init__(
-        self,
-        vocab_size: int,
-        d_model: int,
-        num_heads: int,
-        num_encoder_layers: int,
-        num_decoder_layers: int,
-        dim_feedforward: int = 2048,
-        dropout: float = 0.1,
-        max_seq_len: int = 512
-    ) -> None:
+    def __init__(self, vocab_size, d_model, num_heads, num_encoder_layers, num_decoder_layers,
+                 dim_feedforward=2048, dropout=0.1, max_seq_len=512):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pos_embedding = nn.Embedding(max_seq_len, d_model)
@@ -85,8 +74,8 @@ class Transformer(nn.Module):
         ])
         self.out_proj = nn.Linear(d_model, vocab_size)
 
-    def forward(self, src: Tensor, tgt: Tensor, src_mask: Tensor = None, tgt_mask: Tensor = None) -> Tensor:
-        # src: [B, S] ; tgt: [B, T]
+    def forward(self, src, tgt, src_mask=None, tgt_mask=None):
+        # src: [B, S], tgt: [B, T]
         batch_size, src_len = src.size()
         _, tgt_len = tgt.size()
         device = src.device
@@ -108,6 +97,8 @@ class Transformer(nn.Module):
         logits = self.out_proj(dec_out)  # [B, T, vocab_size]
         return logits
 
-def generate_square_subsequent_mask(sz: int) -> Tensor:
-    """Generate a square mask for the sequence. Mask out subsequent positions (for decoder)."""
+def generate_square_subsequent_mask(sz):
+    """
+    Generate a square mask for the sequence. Mask out subsequent positions (for decoder).
+    """
     return torch.triu(torch.full((sz, sz), float('-inf')), diagonal=1)
